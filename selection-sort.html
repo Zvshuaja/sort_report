@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>選擇排序 Selection Sort 示範</title>
+<style>
+body {
+  font-family: Arial, "微軟正黑體", sans-serif;
+  margin: 20px;
+  background: #f5f7fb;
+  color: #333;
+}
+h1, h2 {
+  margin-bottom: 8px;
+}
+section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.05);
+}
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #1e88e5;
+  color: #fff;
+}
+button:hover { background: #1565c0; }
+input[type="text"] {
+  width: 260px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+#array-visual {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 220px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fafafa;
+}
+.bar {
+  flex: 1;
+  min-width: 24px;
+  border-radius: 6px 6px 0 0;
+  background: #90caf9;
+  position: relative;
+}
+.bar span {
+  position: absolute;
+  top: -24px;
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+}
+.bar.compare { background: #ffb74d; }
+.bar.min { background: #7e57c2; }
+.bar.swap { background: #ef5350; }
+.bar.sorted { background: #66bb6a; }
+#log {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.6;
+}
+code { background: #e8f0fe; padding: 2px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>選擇排序 Selection Sort 示範</h1>
+<p><a href="index.html">← 返回排序演算法導覽</a></p>
+
+<section>
+  <h2>原理</h2>
+  <p>選擇排序會在未排序區間中找到目前最小的元素，然後將它與區間起始位置的元素交換，讓最小值逐步排到前面。</p>
+</section>
+
+<section>
+  <h2>操作步驟</h2>
+  <ol>
+    <li>從第 1 個元素開始，假設它是最小值。</li>
+    <li>比較後面的每個元素，如果有更小的，更新最小值位置。</li>
+    <li>掃描完未排序區間後，將最小值與當前起始位置元素交換。</li>
+    <li>向右移動起始位置，對剩下未排序的區間重複上述步驟。</li>
+    <li>直到整個陣列排序完成。</li>
+  </ol>
+</section>
+
+<section>
+  <h2>時間與空間複雜度</h2>
+  <ul>
+    <li>最差時間複雜度：O(n²)</li>
+    <li>平均時間複雜度：O(n²)</li>
+    <li>最佳時間複雜度：O(n²)</li>
+    <li>空間複雜度：O(1)</li>
+  </ul>
+</section>
+
+<section>
+  <h2>互動示範</h2>
+  <div id="controls">
+    <label for="input-array">輸入數列（用逗號分隔）：</label>
+    <input id="input-array" type="text" value="7,4,9,1,6,3,8,2" />
+    <button id="btn-random">隨機陣列</button>
+    <button id="btn-start">開始排序</button>
+    <button id="btn-step">單步執行</button>
+    <button id="btn-reset">重設</button>
+  </div>
+  <div id="array-visual"></div>
+  <div id="log"></div>
+</section>
+
+<script>
+const inputArray = document.getElementById('input-array');
+const btnRandom = document.getElementById('btn-random');
+const btnStart = document.getElementById('btn-start');
+const btnStep = document.getElementById('btn-step');
+const btnReset = document.getElementById('btn-reset');
+const visual = document.getElementById('array-visual');
+const log = document.getElementById('log');
+
+let array = [];
+let i = 0;
+let j = 1;
+let minIndex = 0;
+let sorting = false;
+let done = false;
+
+function renderArray() {
+  visual.innerHTML = '';
+  array.forEach((value, idx) => {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = `${value * 20}px`;
+    bar.innerHTML = `<span>${value}</span>`;
+    visual.appendChild(bar);
+  });
+}
+
+function logMessage(message) {
+  const p = document.createElement('div');
+  p.textContent = message;
+  log.appendChild(p);
+  log.scrollTop = log.scrollHeight;
+}
+
+function resetState() {
+  const values = inputArray.value
+    .split(',')
+    .map(v => parseInt(v.trim(), 10))
+    .filter(v => !Number.isNaN(v));
+  if (!values.length) {
+    array = [7,4,9,1,6,3,8,2];
+    inputArray.value = array.join(',');
+  } else {
+    array = values;
+  }
+  i = 0;
+  j = 1;
+  minIndex = 0;
+  sorting = false;
+  done = false;
+  log.innerHTML = '';
+  renderArray();
+  logMessage('已重設陣列。請按「開始排序」或「單步執行」。');
+}
+
+function highlightBars(compareIndex, minIdx, status) {
+  const bars = visual.children;
+  Array.from(bars).forEach(bar => bar.classList.remove('compare', 'min', 'swap', 'sorted'));
+  if (status === 'compare') {
+    bars[compareIndex].classList.add('compare');
+    bars[minIdx].classList.add('min');
+  }
+  if (status === 'swap') {
+    bars[compareIndex].classList.add('swap');
+    bars[minIdx].classList.add('swap');
+  }
+}
+
+function markSorted(index) {
+  const bars = visual.children;
+  if (bars[index]) bars[index].classList.add('sorted');
+}
+
+function stepSelectionSort() {
+  if (done) {
+    logMessage('排序已完成。請重設或修改陣列後重新開始。');
+    return;
+  }
+  if (i >= array.length - 1) {
+    done = true;
+    for (let k = 0; k < array.length; k++) markSorted(k);
+    logMessage('排序完成！');
+    return;
+  }
+  if (j >= array.length) {
+    if (minIndex !== i) {
+      [array[i], array[minIndex]] = [array[minIndex], array[i]];
+      renderArray();
+      highlightBars(i, minIndex, 'swap');
+      logMessage(`將第 ${minIndex + 1} 個元素 ${array[i]} 與第 ${i + 1} 個元素交換。`);
+    } else {
+      logMessage(`第 ${i + 1} 個位置已是最小值，無需交換。`);
+    }
+    markSorted(i);
+    i += 1;
+    minIndex = i;
+    j = i + 1;
+    return;
+  }
+  const currentValue = array[j];
+  const currentMin = array[minIndex];
+  highlightBars(j, minIndex, 'compare');
+  logMessage(`比較第 ${j + 1} 個元素 ${currentValue} 和目前最小值位置 ${minIndex + 1} 的 ${currentMin}`);
+  if (currentValue < currentMin) {
+    minIndex = j;
+    logMessage(`更新最小值位置為第 ${minIndex + 1} 個元素。`);
+  }
+  j += 1;
+}
+
+btnRandom.addEventListener('click', () => {
+  const randomArray = Array.from({ length: 8 }, () => Math.floor(Math.random() * 20) + 1);
+  inputArray.value = randomArray.join(',');
+  resetState();
+});
+
+btnStart.addEventListener('click', async () => {
+  if (sorting) return;
+  sorting = true;
+  logMessage('開始自動排序...');
+  while (!done) {
+    stepSelectionSort();
+    await new Promise(r => setTimeout(r, 500));
+  }
+  sorting = false;
+});
+
+btnStep.addEventListener('click', () => {
+  if (sorting) return;
+  stepSelectionSort();
+});
+
+btnReset.addEventListener('click', resetState);
+
+resetState();
+</script>
+</body>
+</html>
