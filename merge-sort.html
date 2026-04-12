@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>合併排序 Merge Sort 示範</title>
+<style>
+body {
+  font-family: Arial, "微軟正黑體", sans-serif;
+  margin: 20px;
+  background: #f5f7fb;
+  color: #333;
+}
+h1, h2 {
+  margin-bottom: 8px;
+}
+section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.05);
+}
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #1e88e5;
+  color: #fff;
+}
+button:hover { background: #1565c0; }
+input[type="text"] {
+  width: 260px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+#array-visual {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 220px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fafafa;
+}
+.bar {
+  flex: 1;
+  min-width: 24px;
+  border-radius: 6px 6px 0 0;
+  background: #90caf9;
+  position: relative;
+}
+.bar span {
+  position: absolute;
+  top: -24px;
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+}
+.bar.compare { background: #ffb74d; }
+.bar.merge { background: #7e57c2; }
+.bar.sorted { background: #66bb6a; }
+#log {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.6;
+}
+code { background: #e8f0fe; padding: 2px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>合併排序 Merge Sort 示範</h1>
+<p><a href="index.html">← 返回排序演算法導覽</a></p>
+
+<section>
+  <h2>原理</h2>
+  <p>合併排序會先將陣列分成左右兩半，再分別遞迴排序後將兩個已排序的子陣列合併成一個已排序陣列。</p>
+</section>
+
+<section>
+  <h2>操作步驟</h2>
+  <ol>
+    <li>將陣列分成兩半，直到子陣列長度為 1 或 0。</li>
+    <li>兩個已排序的子陣列進行合併，依序比較元素大小，放進新陣列。</li>
+    <li>重複這個合併過程，直到回到最外層，整個陣列完成排序。</li>
+  </ol>
+</section>
+
+<section>
+  <h2>時間與空間複雜度</h2>
+  <ul>
+    <li>最差時間複雜度：O(n log n)</li>
+    <li>平均時間複雜度：O(n log n)</li>
+    <li>最佳時間複雜度：O(n log n)</li>
+    <li>空間複雜度：O(n)</li>
+  </ul>
+</section>
+
+<section>
+  <h2>互動示範</h2>
+  <div id="controls">
+    <label for="input-array">輸入數列（用逗號分隔）：</label>
+    <input id="input-array" type="text" value="6,3,8,1,7,2,5,4" />
+    <button id="btn-random">隨機陣列</button>
+    <button id="btn-start">開始排序</button>
+    <button id="btn-step">單步執行</button>
+    <button id="btn-reset">重設</button>
+  </div>
+  <div id="array-visual"></div>
+  <div id="log"></div>
+</section>
+
+<script>
+const inputArray = document.getElementById('input-array');
+const btnRandom = document.getElementById('btn-random');
+const btnStart = document.getElementById('btn-start');
+const btnStep = document.getElementById('btn-step');
+const btnReset = document.getElementById('btn-reset');
+const visual = document.getElementById('array-visual');
+const log = document.getElementById('log');
+
+let array = [];
+let steps = [];
+let stepIndex = 0;
+let sorting = false;
+let done = false;
+
+function renderArray(highlightRange = null) {
+  visual.innerHTML = '';
+  array.forEach((value, idx) => {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = `${value * 20}px`;
+    bar.innerHTML = `<span>${value}</span>`;
+    if (highlightRange && idx >= highlightRange.start && idx < highlightRange.end) {
+      bar.classList.add('merge');
+    }
+    visual.appendChild(bar);
+  });
+}
+
+function logMessage(message) {
+  const p = document.createElement('div');
+  p.textContent = message;
+  log.appendChild(p);
+  log.scrollTop = log.scrollHeight;
+}
+
+function resetState() {
+  const values = inputArray.value
+    .split(',')
+    .map(v => parseInt(v.trim(), 10))
+    .filter(v => !Number.isNaN(v));
+  if (!values.length) {
+    array = [6,3,8,1,7,2,5,4];
+    inputArray.value = array.join(',');
+  } else {
+    array = values;
+  }
+  steps = [];
+  stepIndex = 0;
+  sorting = false;
+  done = false;
+  log.innerHTML = '';
+  renderArray();
+  logMessage('已重設陣列。請按「開始排序」或「單步執行」。');
+}
+
+function collectMergeSteps(arr, start = 0) {
+  if (arr.length <= 1) return arr;
+  const mid = Math.floor(arr.length / 2);
+  const left = collectMergeSteps(arr.slice(0, mid), start);
+  const right = collectMergeSteps(arr.slice(mid), start + mid);
+  const merged = [];
+  let i = 0;
+  let j = 0;
+  while (i < left.length || j < right.length) {
+    if (j >= right.length || (i < left.length && left[i] <= right[j])) {
+      merged.push(left[i]);
+      i += 1;
+    } else {
+      merged.push(right[j]);
+      j += 1;
+    }
+  }
+  steps.push({
+    start,
+    end: start + arr.length,
+    originalLeft: left.slice(),
+    originalRight: right.slice(),
+    merged: merged.slice(),
+  });
+  return merged;
+}
+
+function prepareSteps() {
+  steps = [];
+  collectMergeSteps(array.slice());
+}
+
+function applyStep(step) {
+  const newArray = array.slice();
+  for (let idx = step.start; idx < step.end; idx += 1) {
+    newArray[idx] = step.merged[idx - step.start];
+  }
+  array = newArray;
+}
+
+function stepMergeSort() {
+  if (done) {
+    logMessage('排序已完成。請重設或修改陣列後重新開始。');
+    return;
+  }
+  if (!steps.length) {
+    prepareSteps();
+  }
+  if (stepIndex >= steps.length) {
+    done = true;
+    renderArray();
+    logMessage('排序完成！整個陣列已完成合併。');
+    return;
+  }
+  const step = steps[stepIndex];
+  logMessage(`合併範圍 [${step.start + 1} 到 ${step.end}]，左側: [${step.originalLeft.join(', ')}]，右側: [${step.originalRight.join(', ')}]。`);
+  applyStep(step);
+  renderArray({ start: step.start, end: step.end });
+  logMessage(`結果: [${step.merged.join(', ')}]`);
+  stepIndex += 1;
+}
+
+btnRandom.addEventListener('click', () => {
+  const randomArray = Array.from({ length: 8 }, () => Math.floor(Math.random() * 20) + 1);
+  inputArray.value = randomArray.join(',');
+  resetState();
+});
+
+btnStart.addEventListener('click', async () => {
+  if (sorting) return;
+  sorting = true;
+  logMessage('開始自動排序...');
+  while (!done) {
+    stepMergeSort();
+    await new Promise(r => setTimeout(r, 700));
+  }
+  sorting = false;
+});
+
+btnStep.addEventListener('click', () => {
+  if (sorting) return;
+  stepMergeSort();
+});
+
+btnReset.addEventListener('click', resetState);
+
+resetState();
+</script>
+</body>
+</html>
