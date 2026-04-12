@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>基數排序 Radix Sort 示範</title>
+<style>
+body {
+  font-family: Arial, "微軟正黑體", sans-serif;
+  margin: 20px;
+  background: #f5f7fb;
+  color: #333;
+}
+h1, h2 {
+  margin-bottom: 8px;
+}
+section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.05);
+}
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #1e88e5;
+  color: #fff;
+}
+button:hover { background: #1565c0; }
+input[type="text"] {
+  width: 260px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+#array-visual {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 220px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fafafa;
+}
+.bar {
+  flex: 1;
+  min-width: 24px;
+  border-radius: 6px 6px 0 0;
+  background: #90caf9;
+  position: relative;
+}
+.bar span {
+  position: absolute;
+  top: -24px;
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+}
+.bar.highlight { background: #ffb74d; }
+.bar.sorted { background: #66bb6a; }
+#log {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.6;
+}
+code { background: #e8f0fe; padding: 2px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>基數排序 Radix Sort 示範</h1>
+<p><a href="index.html">← 返回排序演算法導覽</a></p>
+
+<section>
+  <h2>原理</h2>
+  <p>基數排序會依照位數從低到高逐次分配元素到對應桶中，然後按桶的順序收回陣列，直到所有位數排序完成。</p>
+</section>
+
+<section>
+  <h2>操作步驟</h2>
+  <ol>
+    <li>將所有數字依照個位數分配到 0~9 的桶中。</li>
+    <li>按桶的順序收回陣列，得到第一輪結果。</li>
+    <li>依照十位數重複分配與收回。</li>
+    <li>對每一個位數都進行一次分配與合併，最後結果即為排序完成。</li>
+  </ol>
+</section>
+
+<section>
+  <h2>時間與空間複雜度</h2>
+  <ul>
+    <li>時間複雜度：O(d * n)，其中 d 為最大位數。</li>
+    <li>空間複雜度：O(n + k)，其中 k 為桶的數量（通常是 10）。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>互動示範</h2>
+  <div id="controls">
+    <label for="input-array">輸入數列（用逗號分隔）：</label>
+    <input id="input-array" type="text" value="170,45,75,90,802,24,2,66" />
+    <button id="btn-random">隨機陣列</button>
+    <button id="btn-start">開始排序</button>
+    <button id="btn-step">單步執行</button>
+    <button id="btn-reset">重設</button>
+  </div>
+  <div id="array-visual"></div>
+  <div id="log"></div>
+</section>
+
+<script>
+const inputArray = document.getElementById('input-array');
+const btnRandom = document.getElementById('btn-random');
+const btnStart = document.getElementById('btn-start');
+const btnStep = document.getElementById('btn-step');
+const btnReset = document.getElementById('btn-reset');
+const visual = document.getElementById('array-visual');
+const log = document.getElementById('log');
+
+let array = [];
+let steps = [];
+let stepIndex = 0;
+let sorting = false;
+let done = false;
+
+function renderArray(highlightRange) {
+  visual.innerHTML = '';
+  array.forEach((value, idx) => {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = `${value * 0.7 + 20}px`;
+    bar.innerHTML = `<span>${value}</span>`;
+    if (highlightRange && idx >= highlightRange.start && idx < highlightRange.end) {
+      bar.classList.add('highlight');
+    }
+    visual.appendChild(bar);
+  });
+}
+
+function logMessage(message) {
+  const p = document.createElement('div');
+  p.textContent = message;
+  log.appendChild(p);
+  log.scrollTop = log.scrollHeight;
+}
+
+function resetState() {
+  const values = inputArray.value
+    .split(',')
+    .map(v => parseInt(v.trim(), 10))
+    .filter(v => !Number.isNaN(v));
+  if (!values.length) {
+    array = [170,45,75,90,802,24,2,66];
+    inputArray.value = array.join(',');
+  } else {
+    array = values;
+  }
+  steps = [];
+  stepIndex = 0;
+  sorting = false;
+  done = false;
+  log.innerHTML = '';
+  renderArray();
+  logMessage('已重設陣列。請按「開始排序」或「單步執行」。');
+}
+
+function getDigit(value, digit) {
+  return Math.floor(Math.abs(value) / Math.pow(10, digit)) % 10;
+}
+
+function prepareSteps() {
+  steps = [];
+  const maxValue = Math.max(...array.map(v => Math.abs(v)));
+  const maxDigits = maxValue === 0 ? 1 : Math.floor(Math.log10(maxValue)) + 1;
+  let working = array.slice();
+  for (let digit = 0; digit < maxDigits; digit += 1) {
+    const buckets = Array.from({ length: 10 }, () => []);
+    working.forEach(value => {
+      const d = getDigit(value, digit);
+      buckets[d].push(value);
+    });
+    const merged = buckets.flat();
+    steps.push({
+      digit,
+      buckets: buckets.map(bucket => bucket.slice()),
+      merged,
+      start: 0,
+      end: working.length,
+    });
+    working = merged;
+  }
+}
+
+function applyStep(step) {
+  array = step.merged.slice();
+}
+
+function stepRadixSort() {
+  if (done) {
+    logMessage('排序已完成。請重設或修改陣列後重新開始。');
+    return;
+  }
+  if (!steps.length) {
+    prepareSteps();
+  }
+  if (stepIndex >= steps.length) {
+    done = true;
+    renderArray();
+    logMessage('排序完成！所有位數已處理完畢。');
+    return;
+  }
+  const step = steps[stepIndex];
+  logMessage(`第 ${step.digit + 1} 輪：依照第 ${step.digit + 1} 位數分配桶。`);
+  step.buckets.forEach((bucket, index) => {
+    logMessage(`桶 ${index}：[${bucket.join(', ')}]`);
+  });
+  applyStep(step);
+  renderArray(step);
+  logMessage(`合併後結果：[${step.merged.join(', ')}]`);
+  stepIndex += 1;
+}
+
+btnRandom.addEventListener('click', () => {
+  const randomArray = Array.from({ length: 8 }, () => Math.floor(Math.random() * 1000));
+  inputArray.value = randomArray.join(',');
+  resetState();
+});
+
+btnStart.addEventListener('click', async () => {
+  if (sorting) return;
+  sorting = true;
+  logMessage('開始自動排序...');
+  while (!done) {
+    stepRadixSort();
+    await new Promise(r => setTimeout(r, 700));
+  }
+  sorting = false;
+});
+
+btnStep.addEventListener('click', () => {
+  if (sorting) return;
+  stepRadixSort();
+});
+
+btnReset.addEventListener('click', resetState);
+
+resetState();
+</script>
+</body>
+</html>
